@@ -116,7 +116,8 @@ public class RestIndexAction extends BaseRestHandler {
                             .field(Fields._INDEX, response.index())
                             .field(Fields._TYPE, response.type())
                             .field(Fields._ID, response.id())
-                            .field(Fields._VERSION, response.version());
+                            .field(Fields._VERSION, response.version())
+                            .field(Fields._TIMESTAMP, response.timestamp());
                     if (response.matches() != null) {
                         builder.startArray(Fields.MATCHES);
                         for (String match : response.matches()) {
@@ -152,6 +153,7 @@ public class RestIndexAction extends BaseRestHandler {
         static final XContentBuilderString _TYPE = new XContentBuilderString("_type");
         static final XContentBuilderString _ID = new XContentBuilderString("_id");
         static final XContentBuilderString _VERSION = new XContentBuilderString("_version");
+        static final XContentBuilderString _TIMESTAMP = new XContentBuilderString("_timestamp");
         static final XContentBuilderString MATCHES = new XContentBuilderString("matches");
     }
 

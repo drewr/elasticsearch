@@ -28,6 +28,7 @@ import org.elasticsearch.common.io.stream.Streamable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Date;
 
 /**
  * A response of an index operation,
@@ -46,6 +47,8 @@ public class IndexResponse implements ActionResponse, Streamable {
 
     private long version;
 
+    private long timestamp;
+
     private List<String> matches;
 
     public IndexResponse() {
@@ -53,10 +56,15 @@ public class IndexResponse implements ActionResponse, Streamable {
     }
 
     public IndexResponse(String index, String type, String id, long version) {
+        this(index, type, id, version, new Date().getTime());
+    }
+
+    public IndexResponse(String index, String type, String id, long version, long timestamp) {
         this.index = index;
         this.id = id;
         this.type = type;
         this.version = version;
+        this.timestamp = timestamp;
     }
 
     /**
@@ -116,6 +124,20 @@ public class IndexResponse implements ActionResponse, Streamable {
     }
 
     /**
+     * Returns the timestamp when the doc was indexed.
+     */
+    public long timestamp() {
+        return this.timestamp;
+    }
+
+    /**
+     * Returns the timestamp when the doc was indexed.
+     */
+    public long getTimestamp() {
+        return timestamp();
+    }
+
+    /**
      * Returns the percolate queries matches. <tt>null</tt> if no percolation was requested.
      */
     public List<String> matches() {
@@ -142,6 +164,7 @@ public class IndexResponse implements ActionResponse, Streamable {
         id = in.readUTF();
         type = in.readUTF();
         version = in.readLong();
+        timestamp = in.readLong();
         if (in.readBoolean()) {
             int size = in.readVInt();
             if (size == 0) {
@@ -171,6 +194,7 @@ public class IndexResponse implements ActionResponse, Streamable {
         out.writeUTF(id);
         out.writeUTF(type);
         out.writeLong(version);
+        out.writeLong(timestamp);
         if (matches == null) {
             out.writeBoolean(false);
         } else {
