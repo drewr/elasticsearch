@@ -681,6 +681,8 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         for (ZenPing.PingResponse pingResponse : pingResponses) {
             possibleMasterNodes.add(pingResponse.target());
         }
+
+        logger.warn("***checking {} possibleMasterNodes", possibleMasterNodes.size());
         // if we don't have enough master nodes, we bail, even if we get a response that indicates
         // there is a master by other node, we don't see enough...
         if (!electMaster.hasEnoughMasterNodes(possibleMasterNodes)) {

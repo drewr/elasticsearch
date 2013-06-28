@@ -25,6 +25,7 @@ import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.Priority;
+import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.discovery.Discovery;
@@ -58,6 +59,66 @@ public class MinimumMasterNodesTests extends AbstractZenNodesTests {
             }
         }
         closeAllNodes();
+    }
+
+    @Test
+    public void unicastMinimumMasterNodes() throws Exception {
+        ImmutableSettings.Builder settings = settingsBuilder()
+                .put("http.enabled", false)
+                .put("network.host", "localhost")
+                .put("discovery.type", "zen")
+                .put("discovery.zen.ping.multicast.enabled", false)
+                .put("discovery.zen.minimum_master_nodes", -1)
+                .put("discovery.zen.ping_timeout", "200ms")
+                .put("discovery.initial_state_timeout", "500ms")
+                .put("gateway.type", "local")
+                .put("index.number_of_shards", 1);
+
+        String masterNode = "localhost:9311";
+
+        startNode("NODE-1", settings
+                .put("transport.tcp.port", 9311)
+                .put("discovery.zen.ping.unicast.hosts", masterNode)
+                .build());
+        ClusterState state = client("NODE-1").admin().cluster().prepareState().setLocal(true).execute().actionGet().getState();
+        assertThat(state.nodes().masterNode().name(), equalTo("NODE-1"));
+
+        startNode("NODE-2", settings
+                .put("transport.tcp.port", 9312)
+                .put("discovery.zen.ping.unicast.hosts", masterNode)
+                .build());
+        state = client("NODE-2").admin().cluster().prepareState().setLocal(true).execute().actionGet().getState();
+        assertThat(state.nodes().masterNode().name(), equalTo("NODE-1"));
+
+        startNode("NODE-3", settings
+                .put("transport.tcp.port", 9313)
+                .put("discovery.zen.ping.unicast.hosts", masterNode)
+                .build());
+        state = client("NODE-3").admin().cluster().prepareState().setLocal(true).execute().actionGet().getState();
+        assertThat(state.nodes().masterNode().name(), equalTo("NODE-1"));
+
+        startNode("NODE-4", settings
+                .put("transport.tcp.port", 9314)
+                .put("discovery.zen.ping.unicast.hosts", masterNode)
+                .build());
+        state = client("NODE-4").admin().cluster().prepareState().setLocal(true).execute().actionGet().getState();
+        assertThat(state.nodes().masterNode().name(), equalTo("NODE-1"));
+
+        startNode("NODE-5", settings
+                .put("transport.tcp.port", 9315)
+                .put("discovery.zen.ping.unicast.hosts", masterNode)
+                .build());
+        state = client("NODE-5").admin().cluster().prepareState().setLocal(true).execute().actionGet().getState();
+        assertThat(state.nodes().masterNode().name(), equalTo("NODE-1"));
+
+        startNode("NODE-FAIL", settings
+                .put("transport.tcp.port", 9399)
+                .put("discovery.zen.minimum_master_nodes", 4)
+                .put("discovery.zen.ping.unicast.hosts", masterNode)
+                .build());
+        state = client("NODE-FAIL").admin().cluster().prepareState().setLocal(true).execute().actionGet().getState();
+        assertThat(state.blocks().hasGlobalBlock(Discovery.NO_MASTER_BLOCK), equalTo(true));
+
     }
 
     @Test
