@@ -655,6 +655,9 @@ public class MetaData implements Iterable<IndexMetaData> {
         return lst.values[0];
     }
 
+    /*
+     * Expands an array of wildcard strings to their matching aliases and indices. 
+     */
     public String[] convertFromWildcards(String[] aliasesOrIndices, boolean wildcardOnlyOpen, IgnoreIndices ignoreIndices) {
         Set<String> result = null;
         for (int i = 0; i < aliasesOrIndices.length; i++) {
@@ -788,6 +791,9 @@ public class MetaData implements Iterable<IndexMetaData> {
      * the index itself - null is returned. Returns <tt>null</tt> if no filtering is required.</p>
      */
     public String[] filteringAliases(String index, String... indicesOrAliases) {
+        // expand alias wildcards
+        indicesOrAliases = convertFromWildcards(indicesOrAliases, true, IgnoreIndices.MISSING);
+        
         if (isAllIndices(indicesOrAliases)) {
             return null;
         }

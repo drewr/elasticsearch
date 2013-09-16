@@ -189,6 +189,10 @@ public class IndexAliasesTests extends AbstractSharedClusterTest {
         SearchResponse searchResponse = client().prepareSearch("foos").setQuery(QueryBuilders.matchAllQuery()).execute().actionGet();
         assertHits(searchResponse.getHits(), "1");
 
+        logger.info("--> checking single filtering alias wildcard search");
+        searchResponse = client().prepareSearch("fo*").setQuery(QueryBuilders.matchAllQuery()).execute().actionGet();
+        assertHits(searchResponse.getHits(), "1");
+
         searchResponse = client().prepareSearch("tests").setQuery(QueryBuilders.matchAllQuery()).execute().actionGet();
         assertHits(searchResponse.getHits(), "1", "2", "3");
 
@@ -227,6 +231,10 @@ public class IndexAliasesTests extends AbstractSharedClusterTest {
 
         logger.info("--> checking index and filtering alias search");
         searchResponse = client().prepareSearch("test", "foos").setQuery(QueryBuilders.matchAllQuery()).execute().actionGet();
+        assertHits(searchResponse.getHits(), "1", "2", "3", "4");
+        
+        logger.info("--> checking index and alias wildcard search");
+        searchResponse = client().prepareSearch("te*", "fo*").setQuery(QueryBuilders.matchAllQuery()).execute().actionGet();
         assertHits(searchResponse.getHits(), "1", "2", "3", "4");
     }
 
