@@ -1,0 +1,180 @@
+/*
+ * Licensed to ElasticSearch and Shay Banon under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership. ElasticSearch licenses this
+ * file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.elasticsearch.rest.action.cat;
+
+import com.carrotsearch.hppc.ObjectIntOpenHashMap;
+import com.carrotsearch.hppc.ObjectLongOpenHashMap;
+import com.carrotsearch.hppc.procedures.ObjectIntProcedure;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
+import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsRequest;
+import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsResponse;
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
+import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.cluster.routing.RoutingNode;
+import org.elasticsearch.cluster.routing.ShardRouting;
+import org.elasticsearch.common.Strings;
+import org.elasticsearch.common.Table;
+import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.monitor.fs.FsStats;
+import org.elasticsearch.rest.*;
+import org.elasticsearch.rest.action.support.RestTable;
+
+import java.io.IOException;
+import java.util.Iterator;
+
+import static org.elasticsearch.rest.RestRequest.Method.GET;
+
+
+public class RestAllocationAction extends BaseRestHandler{
+    @Inject
+    public RestAllocationAction(Settings settings, Client client, RestController controller) {
+        super(settings, client);
+        controller.registerHandler(GET, "/_cat/allocation", this);
+        controller.registerHandler(GET, "/_cat/allocation/{nodes}", this);
+    }
+
+    @Override
+    public void handleRequest(final RestRequest request, final RestChannel channel) {
+        final String[] nodes = Strings.splitStringByCommaToArray(request.param("nodes"));
+        final ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
+        clusterStateRequest.filterMetaData(true);
+        clusterStateRequest.local(request.paramAsBoolean("local", clusterStateRequest.local()));
+        clusterStateRequest.masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()));
+
+        client.admin().cluster().state(clusterStateRequest, new ActionListener<ClusterStateResponse>() {
+            @Override
+            public void onResponse(final ClusterStateResponse state) {
+                NodesStatsRequest statsRequest = new NodesStatsRequest(nodes);
+                statsRequest.clear().fs(true);
+
+                client.admin().cluster().nodesStats(statsRequest, new ActionListener<NodesStatsResponse>() {
+                    @Override
+                    public void onResponse(NodesStatsResponse stats) {
+                        try {
+                            Table tab = buildTable(state, stats);
+                            channel.sendResponse(RestTable.buildResponse(tab, request, channel));
+                        } catch (Throwable e) {
+                            onFailure(e);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Throwable e) {
+                        try {
+                            channel.sendResponse(new XContentThrowableRestResponse(request, e));
+                        } catch (IOException e1) {
+                            logger.error("Failed to send failure response", e1);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(Throwable e) {
+                try {
+                    channel.sendResponse(new XContentThrowableRestResponse(request, e));
+                } catch (IOException e1) {
+                    logger.error("Failed to send failure response", e1);
+                }
+            }
+        });
+
+    }
+
+    private Table buildTable(final ClusterStateResponse state, final NodesStatsResponse stats) {
+        final ObjectIntOpenHashMap<String> allocs = new ObjectIntOpenHashMap<String>();
+        final ObjectLongOpenHashMap<String> diskUsed = new ObjectLongOpenHashMap<String>();
+        final ObjectLongOpenHashMap<String> diskAvail = new ObjectLongOpenHashMap<String>();
+
+        for (ShardRouting shard : state.getState().routingTable().allShards()) {
+            String nodeId = "UNASSIGNED";
+
+            if (shard.assignedToNode()) {
+                nodeId = shard.currentNodeId();
+            }
+
+            allocs.putOrAdd(nodeId, 0, 1);
+        }
+
+        for (NodeStats node : stats.getNodes()) {
+            long used = 0L;
+            long avail = 0L;
+
+            Iterator<FsStats.Info> diskIter = node.getFs().iterator();
+            while (diskIter.hasNext()) {
+                FsStats.Info disk = diskIter.next();
+                used += disk.getTotal().bytes() - disk.getAvailable().bytes();
+                avail += disk.getAvailable().bytes();
+            }
+
+            diskUsed.putOrAdd(node.getNode().id(), 0, used);
+            diskAvail.putOrAdd(node.getNode().id(), 0, avail);
+        }
+
+        final Table table = new Table();
+        table.startHeaders();
+        table.addCell("shards", "text-align:right;");
+        table.addCell("diskUsed", "text-align:right;");
+        table.addCell("diskAvail", "text-align:right;");
+        table.addCell("diskRatio", "text-align:right;");
+        table.addCell("ip");
+        table.addCell("node");
+        table.endHeaders();
+
+        allocs.forEach(new ObjectIntProcedure<String>() {
+            public void apply(String nodeId, int shardCount) {
+                RoutingNode node = state.getState().routingNodes().node(nodeId);
+
+                Long used = null;
+                if (diskUsed.containsKey(nodeId)) {
+                    used = diskUsed.lget();
+                }
+
+                Long avail = null;
+                if (diskAvail.containsKey(nodeId)) {
+                    avail = diskAvail.lget();
+                }
+
+                Long ratio = null;
+
+                if (used != null && avail != null && avail > 0) {
+                    ratio = used / avail;
+                }
+
+                table.startRow();
+                table.addCell(shardCount);
+                table.addCell(used);
+                table.addCell(avail);
+                table.addCell(ratio);
+                table.addCell(node == null ? null : ((InetSocketTransportAddress) node.node().address()).address().getAddress().getHostAddress());
+                table.addCell(node == null ? "UNASSIGNED" : node.node().name());
+                table.endRow();
+            }
+        });
+
+        return table;
+    }
+
+}
