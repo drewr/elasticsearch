@@ -37,6 +37,7 @@ import org.elasticsearch.common.Table;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.monitor.fs.FsStats;
 import org.elasticsearch.rest.*;
 import org.elasticsearch.rest.action.support.RestTable;
@@ -115,7 +116,7 @@ public class RestAllocationAction extends BaseRestHandler{
                 nodeId = shard.currentNodeId();
             }
 
-            allocs.putOrAdd(nodeId, 0, 1);
+            allocs.addTo(nodeId, 1);
         }
 
         for (NodeStats node : stats.getNodes()) {
@@ -129,8 +130,8 @@ public class RestAllocationAction extends BaseRestHandler{
                 avail += disk.getAvailable().bytes();
             }
 
-            diskUsed.putOrAdd(node.getNode().id(), 0, used);
-            diskAvail.putOrAdd(node.getNode().id(), 0, avail);
+            diskUsed.addTo(node.getNode().id(), used);
+            diskAvail.addTo(node.getNode().id(), avail);
         }
 
         final Table table = new Table();
@@ -147,27 +148,27 @@ public class RestAllocationAction extends BaseRestHandler{
             public void apply(String nodeId, int shardCount) {
                 RoutingNode node = state.getState().routingNodes().node(nodeId);
 
-                Long used = null;
+                long used = -1;
                 if (diskUsed.containsKey(nodeId)) {
                     used = diskUsed.lget();
                 }
 
-                Long avail = null;
+                long avail = -1;
                 if (diskAvail.containsKey(nodeId)) {
                     avail = diskAvail.lget();
                 }
 
-                Long ratio = null;
+                float ratio = -1;
 
-                if (used != null && avail != null && avail > 0) {
-                    ratio = used / avail;
+                if (used >=0 && avail > 0) {
+                    ratio = used / (float) avail;
                 }
 
                 table.startRow();
                 table.addCell(shardCount);
-                table.addCell(used);
-                table.addCell(avail);
-                table.addCell(ratio);
+                table.addCell(used < 0 ? null : new ByteSizeValue(used));
+                table.addCell(avail < 0 ? null : new ByteSizeValue(avail));
+                table.addCell(ratio < 0 ? null : Math.round(ratio*100.0)/100.0);
                 table.addCell(node == null ? null : ((InetSocketTransportAddress) node.node().address()).address().getAddress().getHostAddress());
                 table.addCell(node == null ? "UNASSIGNED" : node.node().name());
                 table.endRow();
