@@ -43,6 +43,7 @@ import org.elasticsearch.rest.action.support.RestTable;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Locale;
 
 import static org.elasticsearch.rest.RestRequest.Method.GET;
 
@@ -167,7 +168,7 @@ public class RestAllocationAction extends BaseRestHandler{
                 table.addCell(shardCount);
                 table.addCell(used < 0 ? null : new ByteSizeValue(used));
                 table.addCell(avail < 0 ? null : new ByteSizeValue(avail));
-                table.addCell(ratio < 0 ? null : String.format("%.1f%%", ratio*100.0));
+                table.addCell(ratio < 0 ? null : String.format(Locale.ROOT, "%.1f%%", ratio*100.0));
                 table.addCell(node == null ? null : ((InetSocketTransportAddress) node.node().address()).address().getAddress().getHostAddress());
                 table.addCell(node == null ? "UNASSIGNED" : node.node().name());
                 table.endRow();
