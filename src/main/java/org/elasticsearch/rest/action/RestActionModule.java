@@ -74,6 +74,7 @@ import org.elasticsearch.rest.action.cat.RestShardsAction;
 import org.elasticsearch.rest.action.cat.RestIndicesAction;
 import org.elasticsearch.rest.action.cat.RestMasterAction;
 import org.elasticsearch.rest.action.cat.RestNodesAction;
+import org.elasticsearch.rest.action.cat.RestRecoveryAction;
 import org.elasticsearch.rest.action.delete.RestDeleteAction;
 import org.elasticsearch.rest.action.deletebyquery.RestDeleteByQueryAction;
 import org.elasticsearch.rest.action.explain.RestExplainAction;
