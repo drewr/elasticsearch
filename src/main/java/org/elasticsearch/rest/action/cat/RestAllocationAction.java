@@ -168,7 +168,7 @@ public class RestAllocationAction extends BaseRestHandler{
                 table.addCell(shardCount);
                 table.addCell(used < 0 ? null : new ByteSizeValue(used));
                 table.addCell(avail < 0 ? null : new ByteSizeValue(avail));
-                table.addCell(ratio < 0 ? null : Math.round(ratio*100.0)/100.0);
+                table.addCell(ratio < 0 ? null : String.format("%.1f%%", ratio*100.0));
                 table.addCell(node == null ? null : ((InetSocketTransportAddress) node.node().address()).address().getAddress().getHostAddress());
                 table.addCell(node == null ? "UNASSIGNED" : node.node().name());
                 table.endRow();
