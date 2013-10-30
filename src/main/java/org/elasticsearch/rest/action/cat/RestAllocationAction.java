@@ -20,8 +20,6 @@
 package org.elasticsearch.rest.action.cat;
 
 import com.carrotsearch.hppc.ObjectIntOpenHashMap;
-import com.carrotsearch.hppc.ObjectLongOpenHashMap;
-import com.carrotsearch.hppc.procedures.ObjectIntProcedure;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsRequest;
@@ -29,7 +27,7 @@ import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.routing.RoutingNode;
+import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.routing.ShardRouting;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.Table;
@@ -106,8 +104,6 @@ public class RestAllocationAction extends BaseRestHandler{
 
     private Table buildTable(final ClusterStateResponse state, final NodesStatsResponse stats) {
         final ObjectIntOpenHashMap<String> allocs = new ObjectIntOpenHashMap<String>();
-        final ObjectLongOpenHashMap<String> diskUsed = new ObjectLongOpenHashMap<String>();
-        final ObjectLongOpenHashMap<String> diskAvail = new ObjectLongOpenHashMap<String>();
 
         for (ShardRouting shard : state.getState().routingTable().allShards()) {
             String nodeId = "UNASSIGNED";
@@ -117,21 +113,6 @@ public class RestAllocationAction extends BaseRestHandler{
             }
 
             allocs.addTo(nodeId, 1);
-        }
-
-        for (NodeStats node : stats.getNodes()) {
-            long used = 0L;
-            long avail = 0L;
-
-            Iterator<FsStats.Info> diskIter = node.getFs().iterator();
-            while (diskIter.hasNext()) {
-                FsStats.Info disk = diskIter.next();
-                used += disk.getTotal().bytes() - disk.getAvailable().bytes();
-                avail += disk.getAvailable().bytes();
-            }
-
-            diskUsed.addTo(node.getNode().id(), used);
-            diskAvail.addTo(node.getNode().id(), avail);
         }
 
         final Table table = new Table();
@@ -144,36 +125,43 @@ public class RestAllocationAction extends BaseRestHandler{
         table.addCell("node");
         table.endHeaders();
 
-        allocs.forEach(new ObjectIntProcedure<String>() {
-            public void apply(String nodeId, int shardCount) {
-                RoutingNode node = state.getState().routingNodes().node(nodeId);
+        for (NodeStats nodeStats : stats.getNodes()) {
+            DiscoveryNode node = nodeStats.getNode();
 
-                long used = -1;
-                if (diskUsed.containsKey(nodeId)) {
-                    used = diskUsed.lget();
-                }
+            long used = -1;
+            long avail = -1;
 
-                long avail = -1;
-                if (diskAvail.containsKey(nodeId)) {
-                    avail = diskAvail.lget();
-                }
-
-                float ratio = -1;
-
-                if (used >=0 && avail > 0) {
-                    ratio = used / (float) avail;
-                }
-
-                table.startRow();
-                table.addCell(shardCount);
-                table.addCell(used < 0 ? null : new ByteSizeValue(used));
-                table.addCell(avail < 0 ? null : new ByteSizeValue(avail));
-                table.addCell(ratio < 0 ? null : String.format(Locale.ROOT, "%.1f%%", ratio*100.0));
-                table.addCell(node == null ? null : ((InetSocketTransportAddress) node.node().address()).address().getAddress().getHostAddress());
-                table.addCell(node == null ? "UNASSIGNED" : node.node().name());
-                table.endRow();
+            Iterator<FsStats.Info> diskIter = nodeStats.getFs().iterator();
+            while (diskIter.hasNext()) {
+                FsStats.Info disk = diskIter.next();
+                used += disk.getTotal().bytes() - disk.getAvailable().bytes();
+                avail += disk.getAvailable().bytes();
             }
-        });
+
+            String nodeId = node.id();
+            
+            int shardCount = -1;
+            if (allocs.containsKey(nodeId)) {
+                shardCount = allocs.lget();
+            }
+
+            float ratio = -1;
+
+            if (used >=0 && avail > 0) {
+                ratio = used / (float) avail;
+            }
+
+            table.startRow();
+            table.addCell(shardCount < 0 ? null : shardCount);
+            table.addCell(used < 0 ? null : new ByteSizeValue(used));
+            table.addCell(avail < 0 ? null : new ByteSizeValue(avail));
+            table.addCell(ratio < 0 ? null : String.format(Locale.ROOT, "%.1f%%", ratio*100.0));
+            table.addCell(node == null ? null : ((InetSocketTransportAddress) node.address()).address().getAddress().getHostAddress());
+            table.addCell(node == null ? "UNASSIGNED" : node.name());
+            table.endRow();
+
+
+        }
 
         return table;
     }
