@@ -91,7 +91,7 @@ public class RestSegmentsAction extends AbstractCatAction {
         table.addCell("shard", "default:true;alias:s,sh;desc:shard name");
         table.addCell("segment", "default:true;alias:seg;desc:segment name");
         table.addCell("num.committed", "default:true;alias:nc,numCommitted;text-align:right;desc:number of committed segments in shard");
-        table.addCell("num.searchable", "default:true;alias:alias:numSearchable,ns;text-align:right;desc:number of searchable segmewnts in shard");
+        table.addCell("num.searchable", "default:true;alias:numSearchable,ns;text-align:right;desc:number of searchable segmewnts in shard");
         table.addCell("generation", "default:true;alias:g,gen;text-align:right;desc:segment generation");
         table.addCell("docs.count", "default:true;alias:dc,docsCount;text-align:right;desc:number of docs in segment");
         table.addCell("docs.deleted", "default:true;alias:dd,docsDeleted;text-align:right;desc:number of deleted docs in segment");
