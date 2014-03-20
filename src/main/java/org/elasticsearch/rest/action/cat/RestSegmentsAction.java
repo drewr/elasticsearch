@@ -113,8 +113,6 @@ public class RestSegmentsAction extends AbstractCatAction {
         table.addCell("prirep", "alias:p,pr,primaryOrReplica;default:true;desc:primary or replica");
         table.addCell("ip", "default:true;desc:ip of node where it lives");
         table.addCell("segment", "default:true;alias:seg;desc:segment name");
-        table.addCell("num.committed", "default:true;alias:nc,numCommitted;text-align:right;desc:number of committed segments in shard");
-        table.addCell("num.searchable", "default:true;alias:numSearchable,ns;text-align:right;desc:number of searchable segmewnts in shard");
         table.addCell("generation", "default:true;alias:g,gen;text-align:right;desc:segment generation");
         table.addCell("docs.count", "default:true;alias:dc,docsCount;text-align:right;desc:number of docs in segment");
         table.addCell("docs.deleted", "default:true;alias:dd,docsDeleted;text-align:right;desc:number of deleted docs in segment");
@@ -150,8 +148,6 @@ public class RestSegmentsAction extends AbstractCatAction {
                         table.addCell(shardSegment.getShardRouting().primary() ? "p" : "r");
                         table.addCell(nodes.get(shardSegment.getShardRouting().currentNodeId()).getHostAddress());
                         table.addCell(segment.getName());
-                        table.addCell(shardSegment.getNumberOfCommitted());
-                        table.addCell(shardSegment.getNumberOfSearch());
                         table.addCell(segment.getGeneration());
                         table.addCell(segment.getNumDocs());
                         table.addCell(segment.getDeletedDocs());
