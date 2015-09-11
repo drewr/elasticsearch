@@ -112,6 +112,7 @@ public class AwsEc2UnicastHostsProvider extends AbstractComponent implements Uni
         logger.trace("building dynamic unicast discovery nodes...");
         for (Reservation reservation : descInstances.getReservations()) {
             for (Instance instance : reservation.getInstances()) {
+                logger.debug("we see instance: {}", instance);
                 // lets see if we can filter based on groups
                 if (!groups.isEmpty()) {
                     List<GroupIdentifier> instanceSecurityGroups = instance.getSecurityGroups();
